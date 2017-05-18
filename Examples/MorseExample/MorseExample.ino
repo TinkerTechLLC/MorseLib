@@ -21,23 +21,23 @@ void loop()
         if(this_char == '\r')
         {
             message_buff[current_message_byte] = '\0';
-            Serial.println("outer adsf buff");
-
+            Serial.print("Message set: ");
             printMessage();
             MorseHandler::setMessage(message_buff);
-            Serial.println("message set");
+            current_message_byte = 0;
         }
         else
         {
             message_buff[current_message_byte] = this_char;
-            Serial.println("getting char");
+            Serial.print("Getting character #");
+            Serial.println(current_message_byte);
+            current_message_byte++;
         }
     }
 }
 
 void printMessage()
 {
-    Serial.println("outer message buff");
     int i = 0;
     while(1)
     {

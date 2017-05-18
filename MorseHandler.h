@@ -40,7 +40,8 @@ private:
     // Member Functions
 
     // Static Variables
-    static const uint8_t NEW_MESSAGE_DELAY = 6;    // How long to wait when starting a new message in cycles
+    static const uint8_t HEADER_CYCLES     = 20;
+    static const uint8_t NEW_MESSAGE_DELAY = 12;    // How long to wait when starting a new message in cycles
     static const uint8_t NEW_CHAR_DELAY    = 3;    // How long to wait when starting a new char in cycles
     static bool          is_initialized;
     static uint32_t      signal_period;
@@ -52,7 +53,6 @@ private:
 
     // Static Functions
     static void timerTest(void);
-    static void printMessage(void);
 };
 
 #endif

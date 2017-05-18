@@ -12,7 +12,7 @@
 // ********************************************
 // Static Variable Initialization
 // ********************************************
-uint32_t MorseHandler::signal_period  = MICROS_PER_SEC / 10; // 4Hz frequency for debugging
+uint32_t MorseHandler::signal_period  = MICROS_PER_SEC / 8; // 4Hz frequency for debugging
 bool     MorseHandler::is_initialized = false;
 bool     MorseHandler::new_message    = false;
 uint8_t  MorseHandler::handler_count  = 0;
@@ -188,26 +188,7 @@ void MorseHandler::setMessage(char* msg)
         }
         i++;
     }
-    MorseHandler::printMessage();
     new_message = true;
-}
-
-void MorseHandler::printMessage(void)
-{
-    int i = 0;
-    while(1)
-    {
-        if(message[i] == '\0')
-        {
-            Serial.println("");
-            return;
-        }
-        else
-        {
-            Serial.print(message[i]);
-        }
-        i++;
-    }
 }
 
 void MorseHandler::handleOutgoingMessage(void)
@@ -219,16 +200,18 @@ void MorseHandler::handleOutgoingMessage(void)
     static bool      new_bit                = true;
     static uint8_t   on_cycles              = 0;
     static uint8_t   off_cycles             = 0;
+    static uint8_t   header_cycles_remain   = 0;
 
     if(new_message)
     {
-        current_char = MorseHandler::charToMorse(message[0]);
-        first_message_received = true;
-        new_message = false;
-        char_count = 0;
-        current_bit = 0;
-        new_bit = true;
-        off_cycles = NEW_MESSAGE_DELAY;
+        header_cycles_remain    = 0;    // Eventually change this from 0 to HEADER_CYCLES implement
+        current_char            = MorseHandler::charToMorse(message[0]);
+        first_message_received  = true;
+        new_message             = false;
+        char_count              = 0;
+        current_bit             = 0;
+        new_bit                 = true;
+        off_cycles              = NEW_MESSAGE_DELAY;
     }
 
     if(!first_message_received)
@@ -236,57 +219,68 @@ void MorseHandler::handleOutgoingMessage(void)
         return;
     }
 
-    if(new_bit)
-    {
-        if(current_bit == current_char.code_length)
-        {
-            char_count++;
-            if(message[char_count] == '\0')
-            {
-                new_message = true;
-                return;
-            }
-            off_cycles = NEW_CHAR_DELAY; // Stay off for a while to indicate a new character
-            current_char = MorseHandler::charToMorse(message[char_count]);
-            current_bit = 0;
-        }
-
-        if(current_char.code >> (current_char.code_length - current_bit - 1) & 0b1)
-        {
-            on_cycles = 2;  // dash
-        }
-        else
-        {
-            on_cycles = 1;  // dot
-        }
-        current_bit++;
-        new_bit = false;
-    }
-
-    if(off_cycles > 0)
+    if(header_cycles_remain > 0)
     {
         for(int i = 0; i < handler_count; i++)
         {
-            digitalWrite(handler[i].toggle_pin, LOW);
+            digitalWrite(handler[i].toggle_pin, ~digitalRead(handler[i].toggle_pin));
         }
-        off_cycles--;
+        header_cycles_remain--;
     }
-    else{
-        if(on_cycles > 0)
+    else
+    {
+        if(new_bit)
         {
-            for(int i = 0; i < handler_count; i++)
+            if(current_bit == current_char.code_length)
             {
-                digitalWrite(handler[i].toggle_pin, HIGH);
+                char_count++;
+                if(message[char_count] == '\0')
+                {
+                    new_message = true;
+                    return;
+                }
+                off_cycles = NEW_CHAR_DELAY; // Stay off for a while to indicate a new character
+                current_char = MorseHandler::charToMorse(message[char_count]);
+                current_bit = 0;
             }
-            on_cycles--;
+
+            if(current_char.code >> (current_char.code_length - current_bit - 1) & 0b1)
+            {
+                on_cycles = 2;  // dash
+            }
+            else
+            {
+                on_cycles = 1;  // dot
+            }
+            current_bit++;
+            new_bit = false;
         }
-        else    // Add a pause (off cycle) between dots and dashes
+
+        if(off_cycles > 0)
         {
             for(int i = 0; i < handler_count; i++)
             {
                 digitalWrite(handler[i].toggle_pin, LOW);
             }
-            new_bit = true;
+            off_cycles--;
+        }
+        else{
+            if(on_cycles > 0)
+            {
+                for(int i = 0; i < handler_count; i++)
+                {
+                    digitalWrite(handler[i].toggle_pin, HIGH);
+                }
+                on_cycles--;
+            }
+            else    // Add a pause (off cycle) between dots and dashes
+            {
+                for(int i = 0; i < handler_count; i++)
+                {
+                    digitalWrite(handler[i].toggle_pin, LOW);
+                }
+                new_bit = true;
+            }
         }
     }
 }
